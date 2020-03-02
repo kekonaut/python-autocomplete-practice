@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional
 from torch.utils.data import TensorDataset, DataLoader, random_split
+import argparse
 
 
 class Lin(torch.nn.Module):
@@ -13,6 +14,13 @@ class Lin(torch.nn.Module):
     def forward(self, x):
         out = torch.sigmoid(self.linear(x))
         return out
+
+
+def createParser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--max_epochs', type=int, default=30)
+    parser.add_argument('-d', '--dev', type=str, default='cpu')
+    return parser
 
 
 def Validate(model, val_data):
@@ -27,7 +35,7 @@ def Validate(model, val_data):
     return correct / total
 
 
-def train_model(model, train_data, val_data, max_epochs=100):
+def train_model(model, train_data, val_data, max_epochs):
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-2)
     loss = nn.CrossEntropyLoss()
     train_loader = DataLoader(dataset=train_data, batch_size=20, shuffle=True)
@@ -49,19 +57,26 @@ def train_model(model, train_data, val_data, max_epochs=100):
             print(f'VAL:  Epoch = {epoch},acc ={Validate(model,val_data)} ')
 
 
-X, y = ds.load_digits(n_class=2, return_X_y=True)
-l = len(X)
-if torch.cuda.is_available():
-    dev = "cuda:0"
-else:
-    dev = "cpu"
-device = torch.device(dev)
-X = torch.LongTensor(X)
-X.to(device)
-y = torch.LongTensor(y)
-y.to(device)
-data = TensorDataset(X, y)
-train_data, test_data, val_data = random_split(data, [int(l * 0.7), int(l * 0.2), l - int(l * 0.7) - int(l * 0.2)])
-input = 8 * 8
-model = Lin(input).to(device)
-train_model(model, train_data, val_data)
+def main():
+    parser = createParser()
+    args = parser.parse_args()
+    X, y = ds.load_digits(n_class=2, return_X_y=True)
+    l = len(X)
+    if args.dev == 'gpu':
+        dev = "cuda:0"
+    else:
+        dev = "cpu"
+    device = torch.device(dev)
+    X = torch.LongTensor(X)
+    X.to(device)
+    y = torch.LongTensor(y)
+    y.to(device)
+    data = TensorDataset(X, y)
+    train_data, test_data, val_data = random_split(data, [int(l * 0.7), int(l * 0.2), l - int(l * 0.7) - int(l * 0.2)])
+    input = 8 * 8
+    model = Lin(input).to(device)
+    train_model(model, train_data, val_data, args.max_epochs)
+
+
+if __name__ == '__main__':
+    main()
